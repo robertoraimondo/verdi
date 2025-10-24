@@ -1,0 +1,20 @@
+# Add this image to your project directory as 'kawai_piano.jpg' or similar.
+# To use it as a background in your PyQt5 app, update the main window stylesheet.
+
+# Example code snippet to add to Verdi.py __init__ after self.setWindowTitle:
+# (Assuming the image is saved as 'kawai_piano.jpg' in the same directory as Verdi.py)
+
+import os
+image_path = os.path.join(os.path.dirname(__file__), 'kawai_piano.jpg')
+self.setStyleSheet(f"""
+QMainWindow {{
+    background-image: url('{image_path.replace('\\', '/')}');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-attachment: fixed;
+    background-size: cover;
+}}
+""" + self.styleSheet())
+
+# This will set the piano image as the background for the main window.
+# You may want to adjust widget backgrounds to be more transparent for best effect.
