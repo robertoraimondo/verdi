@@ -2,6 +2,10 @@
 
 Verdi is a visually rich, orchestral-themed music application for Windows, built with Python and PyQt5. It provides tools for converting, playing, and visualizing MIDI and WAV files, with a focus on piano music and educational features.
 
+<img width="1453" height="943" alt="verdi1" src="https://github.com/user-attachments/assets/c4bcf1cc-450a-4bdf-9e12-02506e0e2ac1" />
+
+<img width="1919" height="1030" alt="verdi2" src="https://github.com/user-attachments/assets/ffcac910-5803-4a7e-bdea-1f3731762d17" />
+
 ## Features
 
 - **Beautiful Orchestral GUI**: Parchment backgrounds, gold/copper accents, and modern, readable layouts.
@@ -67,3 +71,4 @@ Author: Roberto Raimondo - IS Senior Systems Engineer II
 ---
 
 For questions or contributions, please open an issue or pull request.
+
