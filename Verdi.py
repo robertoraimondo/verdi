@@ -10,6 +10,62 @@ from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QPixmap, QImage, QFont
 from piano_widget import PianoWidget
 
+class BasicPitchConversionThread(QThread):
+    finished = pyqtSignal(str)
+    error = pyqtSignal(str)
+
+    def __init__(self, wav_path, output_folder):
+        super().__init__()
+        self.wav_path = wav_path
+        self.output_folder = output_folder
+
+    def run(self):
+        try:
+            from basic_pitch.inference import predict_and_save, ICASSP_2022_MODEL_PATH
+            import os
+            midi_base = os.path.splitext(os.path.basename(self.wav_path))[0]
+            midi_name = midi_base + ".mid"
+            midi_path = os.path.join(self.output_folder, midi_name)
+            midi_path_basic_pitch = os.path.join(self.output_folder, midi_base + "_basic_pitch.mid")
+            # Remove both possible MIDI files before conversion
+            if os.path.exists(midi_path):
+                os.remove(midi_path)
+            if os.path.exists(midi_path_basic_pitch):
+                os.remove(midi_path_basic_pitch)
+            predict_and_save(
+                [self.wav_path],
+                output_directory=self.output_folder,
+                save_midi=True,
+                save_notes=False,
+                sonify_midi=False,
+                save_model_outputs=False,
+                model_or_model_path=ICASSP_2022_MODEL_PATH
+            )
+            # Check for both default and *_basic_pitch.mid output
+            if os.path.exists(midi_path):
+                found_path = midi_path
+            elif os.path.exists(midi_path_basic_pitch):
+                found_path = midi_path_basic_pitch
+            else:
+                found_path = None
+            if found_path:
+                self.finished.emit(found_path)
+            else:
+                self.error.emit(f"Conversion finished, but MIDI file not found in {self.output_folder}.")
+        except Exception as e:
+            self.error.emit(str(e))
+import time
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+import mido
+import sys
+import os
+import re
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QFileDialog, QMessageBox, QWidget, QInputDialog, QProgressBar, QSizePolicy
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt5.QtGui import QPixmap, QImage, QFont
+from piano_widget import PianoWidget
+
 class MidiPlaybackThread(QThread):
     update_notes = pyqtSignal(list)
     advance_page = pyqtSignal()
@@ -130,7 +186,7 @@ class Verdi(QMainWindow):
         self.play_wav_btn = QPushButton("Play WAV")
         self.stop_wav_btn = QPushButton("Stop")
         self.convert_midi_btn = QPushButton("Convert to MIDI")
-        self.import_midi_btn = QPushButton("Import MIDI")
+        self.import_midi_btn = QPushButton("Create Staff")
         self.midi_progress = QProgressBar()
         self.midi_progress.setMinimum(0)
         self.midi_progress.setMaximum(0)
@@ -251,7 +307,6 @@ QPushButton:hover {
                 background: #f8f5e6;
                 border: 2.5px solid #bfa14a;
                 border-radius: 18px;
-                box-shadow: 0 6px 24px 0 rgba(80,60,20,0.10);
             }
             QLabel {
                 color: #4b2e19;
@@ -269,8 +324,6 @@ QPushButton:hover {
                 font-size: 10px;
                 padding: 8px 12px;
                 margin: 4px 0;
-                box-shadow: 0 2px 8px 0 rgba(80,60,20,0.08);
-                transition: background 0.2s, color 0.2s;
                 min-width: 200px;
                 min-height: 40px;
                 max-width: 200px;
@@ -341,52 +394,31 @@ QPushButton:hover {
             self.status_label.setText("No output folder selected for MIDI.")
             return
 
-        try:
-            from basic_pitch.inference import predict_and_save, ICASSP_2022_MODEL_PATH
-        except Exception as import_exc:
-            self.status_label.setText(f"Failed to import basic-pitch: {import_exc}")
-            QMessageBox.critical(self, "MIDI Conversion Failed", f"Failed to import basic-pitch:\n{import_exc}")
-            return
-
+        # Show progress bar, hourglass, and status message
         self.status_label.setText("Converting WAV to MIDI using basic-pitch...")
-        midi_base = os.path.splitext(os.path.basename(wav_path))[0]
-        midi_name = midi_base + ".mid"
-        midi_path = os.path.join(output_folder, midi_name)
-        midi_path_basic_pitch = os.path.join(output_folder, midi_base + "_basic_pitch.mid")
+        self.midi_progress.setVisible(True)
+        self.setCursor(Qt.WaitCursor)
+        self.repaint()
 
-        # Remove both possible MIDI files before conversion
-        if os.path.exists(midi_path):
-            os.remove(midi_path)
-        if os.path.exists(midi_path_basic_pitch):
-            os.remove(midi_path_basic_pitch)
-        try:
-            predict_and_save(
-                [wav_path],
-                output_directory=output_folder,
-                save_midi=True,
-                save_notes=False,
-                sonify_midi=False,
-                save_model_outputs=False,
-                model_or_model_path=ICASSP_2022_MODEL_PATH
-            )
-        except Exception as e:
-            self.status_label.setText(f"MIDI conversion failed: {e}")
-            QMessageBox.critical(self, "MIDI Conversion Failed", f"MIDI conversion failed:\n{e}")
-            return
-        # Check for both default and *_basic_pitch.mid output
-        if os.path.exists(midi_path):
-            found_path = midi_path
-        elif os.path.exists(midi_path_basic_pitch):
-            found_path = midi_path_basic_pitch
-        else:
-            found_path = None
+        # Start conversion in a thread
+        self.midi_thread = BasicPitchConversionThread(wav_path, output_folder)
+        self.midi_thread.finished.connect(self._on_midi_conversion_finished)
+        self.midi_thread.error.connect(self._on_midi_conversion_error)
+        self.midi_thread.start()
 
-        if found_path:
-            self.status_label.setText(f"MIDI file created: {found_path}")
-            QMessageBox.information(self, "MIDI Conversion Complete", f"MIDI file created:\n{found_path}")
-        else:
-            self.status_label.setText(f"Conversion finished, but MIDI file not found in {output_folder}.")
-            QMessageBox.warning(self, "MIDI Conversion", f"Conversion finished, but MIDI file not found in {output_folder}.")
+    def _on_midi_conversion_finished(self, found_path):
+        self.midi_progress.setVisible(False)
+        self.setCursor(Qt.ArrowCursor)
+        self.status_label.setText(f"MIDI file created: {found_path}")
+        from PyQt5.QtWidgets import QMessageBox
+        QMessageBox.information(self, "MIDI Conversion Complete", f"MIDI file created:\n{found_path}")
+
+    def _on_midi_conversion_error(self, error_msg):
+        self.midi_progress.setVisible(False)
+        self.setCursor(Qt.ArrowCursor)
+        self.status_label.setText(f"MIDI conversion failed: {error_msg}")
+        from PyQt5.QtWidgets import QMessageBox
+        QMessageBox.critical(self, "MIDI Conversion Failed", f"MIDI conversion failed:\n{error_msg}")
     def stop_wav_file(self):
         if hasattr(self, 'wav_player') and self.wav_player:
             self.wav_player.stop()
@@ -486,23 +518,43 @@ QPushButton:hover {
         from PyQt5.QtWidgets import QFileDialog, QMessageBox
         from pydub import AudioSegment
         import os
+        import re
 
         # Step 1: Select MP3 source file
         mp3_path, _ = QFileDialog.getOpenFileName(self, "Convert MP3 to WAV", "", "MP3 Files (*.mp3)")
         if not mp3_path:
-            self.file_label.setText("No file selected.")
+            self.title_label.setText("No file selected.")
             self.status_label.setText("<span style='color:red'>No file selected.</span>")
             return
+
+        # Step 1.5: Sanitize MP3 filename (remove special characters, spaces, ~()_-':"")
+        mp3_dir = os.path.dirname(mp3_path)
+        mp3_filename = os.path.basename(mp3_path)
+        # Remove spaces and special characters: ~ ( ) - _ ' : "
+        sanitized = re.sub(r"[ ~()\-_':\"]+", "", mp3_filename)
+        sanitized = re.sub(r"[^A-Za-z0-9.]", "", sanitized)  # Remove any other non-alphanum except dot
+        sanitized_path = os.path.join(mp3_dir, sanitized)
+        if sanitized_path != mp3_path:
+            try:
+                os.rename(mp3_path, sanitized_path)
+                mp3_filename = sanitized
+            except Exception as e:
+                self.status_label.setText(f"Failed to rename file: {e}")
+                return
+        # Show busy progress bar and hourglass cursor
+        self.status_label.setText("Converting WAV to MIDI using basic-pitch...")
+        self.midi_progress.setVisible(True)
+        self.setCursor(Qt.WaitCursor)
 
         # Step 2: Select destination folder
         dest_folder = QFileDialog.getExistingDirectory(self, "Select Destination Folder for WAV")
         if not dest_folder:
-            self.file_label.setText("No destination folder selected.")
+            self.title_label.setText("No destination folder selected.")
             self.status_label.setText("<span style='color:red'>No destination folder selected.</span>")
             return
 
-        # Step 2.5: Create subfolder with song name
-        base_name = os.path.splitext(os.path.basename(mp3_path))[0]
+        # Step 2.5: Create subfolder with song name (use sanitized base name)
+        base_name = os.path.splitext(mp3_filename)[0]
         song_folder = os.path.join(dest_folder, base_name)
         try:
             os.makedirs(song_folder, exist_ok=True)
@@ -517,7 +569,12 @@ QPushButton:hover {
             audio.export(wav_path, format="wav")
         except Exception as e:
             self.status_label.setText(f"Conversion failed: {e}")
+            self.midi_progress.setVisible(False)
+            self.setCursor(Qt.ArrowCursor)
             return
+        # Hide progress bar and restore cursor after successful conversion
+        self.midi_progress.setVisible(False)
+        self.setCursor(Qt.ArrowCursor)
 
         # Step 4: Update UI
         self.status_label.setText("MP3 converted to WAV successfully.")
@@ -535,8 +592,12 @@ QPushButton:hover {
             self.status_label.setText("PyMuPDF (fitz) not installed.")
             return
 
+        self.status_label.setText("Please select a MIDI file to create staff.")
+        from PyQt5.QtWidgets import QMessageBox
+        QMessageBox.information(self, "Create Staff", "Please select a MIDI file to create staff.")
         midi_path, _ = QFileDialog.getOpenFileName(self, 'Open MIDI File', '', 'MIDI Files (*.mid *.midi)')
         if not midi_path:
+            self.status_label.setText("No MIDI file selected.")
             return
         # Set the song title from the filename, removing '_basic_pitch' if present
         song_title = os.path.splitext(os.path.basename(midi_path))[0]
@@ -807,7 +868,7 @@ if __name__ == "__main__":
             # Show modal dialog on top of splash
             msg = QMessageBox()
             msg.setWindowTitle("Welcome to Verdi")
-            msg.setText("Welcome to Verdi. With this application You can download MP3 from Youtube, then convert the MP3 to WAV, then convert the WAV to MIDI and finally import the MIDI file to generate the staff. Have fun! Author: Roberto Raimondo IS Senior System Engineer II.")
+            msg.setText("Welcome to Verdi. With this application You can download MP3 from Youtube, then convert the MP3 to WAV, then convert the WAV to MIDI and finally import the MIDI file to generate the staff. Have fun!")
             msg.setIcon(QMessageBox.Information)
             msg.setStandardButtons(QMessageBox.Ok)
             msg.setWindowModality(Qt.ApplicationModal)

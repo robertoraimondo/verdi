@@ -1,24 +1,20 @@
+
 # Verdi Music2Notes App
 
 Verdi is a visually rich, orchestral-themed music application for Windows, built with Python and PyQt5. It provides tools for converting, playing, and visualizing MIDI and WAV files, with a focus on piano music and educational features.
 
-<img width="1453" height="943" alt="verdi1" src="https://github.com/user-attachments/assets/c4bcf1cc-450a-4bdf-9e12-02506e0e2ac1" />
-
-<img width="1919" height="1030" alt="verdi2" src="https://github.com/user-attachments/assets/ffcac910-5803-4a7e-bdea-1f3731762d17" />
-
 ## Features
 
-- **Beautiful Orchestral GUI**: Parchment backgrounds, gold/copper accents, and modern, readable layouts.
-- **Piano Widget**: Interactive piano keyboard for note visualization.
-- **MIDI & WAV Support**: Open, play, and convert MIDI and WAV files.
-- **YouTube MP3 Download**: Download and convert YouTube MP3s to WAV.
-- **PDF Export**: Export sheet music to PDF (requires MuseScore).
-- **SoundFont Support**: Uses TiMidity++ and custom soundfonts for high-quality MIDI playback.
-- **Batch MIDI Renaming**: Script included to convert MIDI filenames to ASCII for compatibility.
+- **Orchestral-themed GUI**: Modern, visually appealing interface with piano visualization and staff rendering.
+- **Create Staff from MIDI**: Use the "Create Staff" button to select a MIDI file and generate a staff PDF (requires MuseScore).
+- **Convert MP3/WAV to MIDI**: Convert audio files to MIDI using basic-pitch, with progress bar and status feedback.
+- **Playback**: Play WAV and MIDI files with note highlights and page turning.
+- **Download YouTube MP3**: Download and convert YouTube videos to MP3 directly from the app.
+- **Status and Progress**: Status label and progress bar show conversion/playback status. Popup dialogs guide user actions.
 
 ## Requirements
 
-- Python 3.7+
+- Python 3.11+
 - PyQt5
 - mido
 - TiMidity++ (with soundfont and config in `TiMidity/`)
@@ -36,6 +32,7 @@ Verdi is a visually rich, orchestral-themed music application for Windows, built
 
 ## Usage
 
+
 Run the application from the project directory:
 
 ```sh
@@ -43,8 +40,11 @@ python Verdi.py
 ```
 
 - Use the left panel buttons to open, convert, and play files.
+- Click "Download YouTube MP3" to download and convert a YouTube video to MP3.
+- Click "Create Staff" to select a MIDI file and generate a staff PDF.
 - The status label above the staff image shows playback and conversion status.
 - The piano widget highlights notes during playback.
+- Progress bar and popup dialogs provide feedback during long operations.
 
 ## Troubleshooting
 
@@ -64,12 +64,10 @@ python Verdi.py
 
 This project is open source and available under the MIT License.
 
-Author: Roberto Raimondo - IS Senior Systems Engineer II
+**Author: Roberto Raimondo - IS Senior Systems Engineer II**
 
 © 2025 All Rights Reserved.
 
 ---
 
 For questions or contributions, please open an issue or pull request.
-
-
